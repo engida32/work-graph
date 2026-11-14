@@ -39,9 +39,9 @@ Keep at most one running session per project. If one already exists, continue it
 instead of creating a second note.
 
 In a new vault, create `Projects/<project>.md` with `type: project`, `status:
-active`, and a `## Sessions` heading before the first `start`; `start` validates
-that MOC and refuses with `project MOC not found` without it. `start` creates
-`Sessions/Active.md` on first use if it is missing.
+active`, a `## Case Study`, and a `## Sessions` heading before the first
+`start`; `start` validates that MOC and refuses with `project MOC not found`
+without it. `start` creates `Sessions/Active.md` on first use if it is missing.
 
 Use the CLI. It is installed by `./install.sh --hermes`; if `work-graph` is not
 on `PATH`, invoke the module with the Python that owns the install (often
@@ -239,6 +239,18 @@ The checker covers required headings, the 150-line cap, one running session per
 project, Active.md consistency, broken wikilinks, project MOC drift, duplicate
 questions, output freshness, stale running sessions, and watcher liveness.
 Errors fail the check. Warnings are logged and the rebuild continues.
+
+## Troubleshooting
+
+- `start` reports `project MOC not found`: create the project MOC as described
+  in Running session. `start` creates `Sessions/Active.md` itself.
+- `check` reports `Projects/<name>.md missing ## Case Study`: add the section to
+  the project MOC; the same requirement applies to scratch vaults.
+- `check` warns `Home.md is older than the newest source note` after a build:
+  compare the generated `Source updated` stamp. A byte-identical rebuild keeps
+  the old mtime on purpose, so mtime alone is not staleness.
+- A scratch vault with no watcher or autostart entry warns about both. That is
+  expected; errors are the only failure signal there.
 
 ## Generated views
 
