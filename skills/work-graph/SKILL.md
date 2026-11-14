@@ -34,7 +34,9 @@ At the start, check `Sessions/Active.md` for a running note on the same project.
 Keep at most one running session per project. If one already exists, continue it
 instead of creating a second note.
 
-Use the CLI:
+Use the CLI. It is installed by `./install.sh --hermes`; if `work-graph` is not
+on `PATH`, invoke the module with the Python that owns the install (often
+`/usr/bin/python3 -m work_graph`):
 
 ```bash
 work-graph start my-task --project my-project

@@ -29,7 +29,19 @@ Or install the published package:
 python3 -m pip install --user git+https://github.com/engida32/work-graph.git
 ```
 
-The command is `work-graph`.
+For Hermes, install the package and link the skill in one step:
+
+```bash
+./install.sh --hermes
+```
+
+That symlinks `skills/work-graph` into `~/.agents/skills/work-graph` and
+`~/.hermes/skills/work-graph`. Restart Hermes or run `hermes skills list` to
+confirm it loads. Use `./install.sh --uninstall` to remove the command and only
+the links this script created.
+
+The command is `work-graph`. If it is not on `PATH`, invoke the module with the
+Python that owns the install: `/usr/bin/python3 -m work_graph`.
 
 ## Quick start
 

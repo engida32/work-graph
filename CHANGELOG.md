@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.1 - 2026-11-14
+
+### Added
+
+- `./install.sh --hermes` installs the package and links the skill into
+  `~/.agents/skills/work-graph` and `~/.hermes/skills/work-graph`.
+- `python3 -m work_graph` as a fallback when the console script is not on
+  `PATH`.
+- `./install.sh --uninstall` removes the package and only the skill links the
+  script created.
+
+### Fixed
+
+- The installer now finds a Python interpreter that actually has `pip` instead
+  of assuming `python3` does.
+
 ## 0.1.0 - 2026-11-14
 
 First standalone release, extracted from the personal vault scripts.
