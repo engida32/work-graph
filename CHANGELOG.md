@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.2 - 2026-11-14
+
+### Fixed
+
+- Duplicate open-question warnings now only consider checklist items inside a
+  `## Open questions` section, so repeated plan checkboxes no longer warn.
+- The watcher PID check recognizes the installed `work-graph watcher` console
+  script, not just the legacy `watch-knowledge` script names.
+
+### Added
+
+- A regression test for duplicate-question scoping and watcher command
+  detection.
+
 ## 0.1.1 - 2026-11-14
 
 ### Added

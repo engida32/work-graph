@@ -66,6 +66,15 @@ def atomic_write(path: Path, text: str, *, backup: bool = False) -> None:
         raise
 
 
+def is_watcher_command(cmdline: str) -> bool:
+    text = cmdline.replace("\0", " ")
+    return (
+        "watch-knowledge" in text
+        or "work_graph.watcher" in text
+        or ("work-graph" in text and "watcher" in text)
+    )
+
+
 @contextmanager
 def mutation_lock(config: Config) -> Iterator[None]:
     """Serialize mutations across concurrent agent sessions."""

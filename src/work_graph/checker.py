@@ -22,7 +22,7 @@ from .markdown import (
     insert_case_study,
     strip_anchor,
 )
-from .store import NoteIndex, SessionInfo, atomic_write
+from .store import NoteIndex, SessionInfo, atomic_write, is_watcher_command
 
 NOTE_DIRS = ("Projects", "Decisions", "Sessions", "Research", "Agents", "Maps")
 FIX_DIRS = ("Projects", "Sessions", "Research", "Agents", "Maps")
@@ -191,8 +191,15 @@ def _check_questions(index: NoteIndex, result: CheckResult) -> None:
     for path in index.notes:
         body, _ = split_frontmatter(path.read_text(encoding="utf-8"))
         lines = body.splitlines()
+        heading = ""
         for line, fenced in zip(lines, fenced_flags(lines)):
             if fenced:
+                continue
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                heading = stripped.lower()
+                continue
+            if heading != "## open questions":
                 continue
             match = QUESTION_RE.match(line)
             if not match:
@@ -234,7 +241,7 @@ def _check_watcher(index: NoteIndex, result: CheckResult) -> None:
     except OSError:
         result.warnings.append("watcher process is not readable")
         return
-    if "watch-knowledge" not in cmdline and "work_graph.watcher" not in cmdline:
+    if not is_watcher_command(cmdline):
         result.warnings.append(f"PID {pid} is not the knowledge watcher")
 
 

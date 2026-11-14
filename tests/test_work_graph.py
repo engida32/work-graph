@@ -20,6 +20,7 @@ from work_graph.store import (
     NoteIndex,
     atomic_write,
     find_session,
+    is_watcher_command,
     session_template,
     strict_issues,
     validate_project,
@@ -181,6 +182,12 @@ class StoreTests(unittest.TestCase):
         for heading in ("## Decisions", "## Open questions", "## Artifacts", "## Outcome", "## Evidence"):
             self.assertIn(heading, text)
 
+    def test_watcher_command_detection(self) -> None:
+        self.assertTrue(is_watcher_command("/usr/bin/python3 /home/u/.local/bin/work-graph watcher"))
+        self.assertTrue(is_watcher_command("python3 -m work_graph.watcher"))
+        self.assertTrue(is_watcher_command("/bin/sh scripts/watch-knowledge-loop.sh"))
+        self.assertFalse(is_watcher_command("python3 app.py"))
+
     def test_strict_issues_detect_placeholders(self) -> None:
         issues = strict_issues(session_template("test", "Test"))
         self.assertTrue(any("Pending" in issue for issue in issues))
@@ -301,6 +308,8 @@ Done.
 
 Tests pass.
 
+## Open questions
+
 - [ ] Same question?
 """
         write_session(self.config, "2026-01-01-old-one", text=body)
@@ -310,6 +319,46 @@ Tests pass.
         messages = "\n".join(result.warnings)
         self.assertIn("duplicate open question", messages)
         self.assertIn("has been running for", messages)
+
+    def test_plan_checkboxes_are_not_open_questions(self) -> None:
+        body = f"""---
+type: agent-session
+status: done
+date: 2026-01-02
+project: "[[Projects/test]]"
+tags: [agent/session]
+---
+
+# Plan only
+
+## Case Study
+
+Problem: test
+
+## Architecture
+
+## Important Notes
+
+## High-Level Plan
+
+- [ ] Submit each proposal only with explicit user approval.
+
+## Tech Stack and Reasons
+
+## Outcome
+
+Done.
+
+## Evidence
+
+Tests pass.
+"""
+        write_session(self.config, "2026-01-02-plan-one", text=body)
+        write_session(self.config, "2026-01-03-plan-two", text=body)
+        builder.build(self.config)
+        result = checker.check(self.config)
+        messages = "\n".join(result.warnings)
+        self.assertNotIn("duplicate open question", messages)
 
     def test_json_shape(self) -> None:
         builder.build(self.config)

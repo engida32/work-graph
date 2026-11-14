@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import builder, checker
 from .config import Config
-from .store import atomic_write
+from .store import atomic_write, is_watcher_command
 
 POLL_SECONDS = float(os.environ.get("WORK_GRAPH_POLL_SECONDS", "2.0"))
 NOTIFY_COOLDOWN = 24 * 60 * 60
@@ -245,7 +245,7 @@ def already_running(config: Config) -> bool:
         cmdline = Path(f"/proc/{pid}/cmdline").read_text()
     except OSError:
         return False
-    return "watch-knowledge" in cmdline or "work_graph.watcher" in cmdline
+    return is_watcher_command(cmdline)
 
 
 def run(config: Config, *, once: bool = False) -> int:
