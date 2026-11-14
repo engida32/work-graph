@@ -14,6 +14,11 @@
 - A regression test for duplicate-question scoping and watcher command
   detection.
 
+### Changed
+
+- `Home.md` now defaults to the vault root (`<vault>/Home.md`) so Obsidian sees
+  it; `WORK_GRAPH_HOME` still overrides the path.
+
 ## 0.1.1 - 2026-11-14
 
 ### Added

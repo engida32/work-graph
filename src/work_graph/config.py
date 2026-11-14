@@ -28,7 +28,7 @@ class Config:
             "WORK_GRAPH_STATE",
             Path.home() / ".local" / "state" / "work-graph-knowledge",
         )
-        home = _path("WORK_GRAPH_HOME", view.with_name("Home.md"))
+        home = _path("WORK_GRAPH_HOME", vault / "Home.md")
         autostart = _path(
             "WORK_GRAPH_AUTOSTART",
             Path.home()
