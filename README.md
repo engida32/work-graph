@@ -148,7 +148,7 @@ Every project, session, research, agent, and map note opens with `## Case Study`
 
 - `WORK_GRAPH_VIEW` (default `~/work-graph/Knowledge.md`) is the full view:
   every note, a Mermaid map, a session count, a timeline, and open questions.
-- `WORK_GRAPH_HOME` (default next to the full view) is a compact dashboard with
+- `WORK_GRAPH_HOME` (default `<vault>/Home.md`) is a compact dashboard with
   running sessions, project summaries, recent sessions, and open questions. It
   stays under 50 KB for a typical vault.
 
@@ -163,11 +163,11 @@ one-file completeness.
 ## Obsidian
 
 Open the **vault** in Obsidian, not the generated view. The notes already use
-Obsidian-compatible frontmatter and wikilinks. `Home.md` is written outside the
-vault by default; to keep it inside the vault, set:
+Obsidian-compatible frontmatter and wikilinks. `Home.md` is written to the vault
+root by default; override it with:
 
 ```bash
-export WORK_GRAPH_HOME="$HOME/work-graph-source/Home.md"
+export WORK_GRAPH_HOME="$HOME/work-graph/Home.md"
 ```
 
 Add `Home.md` to the vault's `.gitignore` if you do not want the generated
@@ -179,7 +179,7 @@ dashboard in the snapshot. The source notes remain canonical.
 | --- | --- | --- |
 | `WORK_GRAPH_VAULT` | `~/work-graph-source` | source vault root |
 | `WORK_GRAPH_VIEW` | `~/work-graph/Knowledge.md` | full generated view |
-| `WORK_GRAPH_HOME` | next to the full view | compact dashboard |
+| `WORK_GRAPH_HOME` | `<vault>/Home.md` | compact dashboard |
 | `WORK_GRAPH_STATE` | `~/.local/state/work-graph-knowledge` | pid, log, lock, validation |
 | `WORK_GRAPH_AUTOSTART` | `~/.config/autostart/work-graph-knowledge.desktop` | optional autostart file |
 | `WORK_GRAPH_STALE_DAYS` | `7` | stale running-session warning threshold |
