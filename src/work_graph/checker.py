@@ -131,7 +131,7 @@ def _resolve_link(target: str, config: Config, stems: set[str]) -> bool:
 def _check_links(index: NoteIndex, result: CheckResult) -> None:
     stems = {path.stem for path in index.notes}
     for path in index.notes:
-        body, _ = split_frontmatter(path.read_text(encoding="utf-8"))
+        body = index.body(path)
         lines = body.splitlines()
         for line, fenced in zip(lines, fenced_flags(lines)):
             if fenced:
@@ -148,8 +148,9 @@ def _check_projects(index: NoteIndex, result: CheckResult) -> None:
     by_project: dict[str, list[SessionInfo]] = defaultdict(list)
     for session in index.sessions:
         by_project[session.project].append(session)
+    owner_by_stem = {session.stem: session.project for session in index.sessions}
     for project in index.projects:
-        text = project.read_text(encoding="utf-8")
+        text = index.read(project)
         if not has_heading(text, CASE_STUDY):
             result.errors.append(f"{index.config.relative(project)} missing {CASE_STUDY}")
         _, frontmatter = split_frontmatter(text)
@@ -175,10 +176,7 @@ def _check_projects(index: NoteIndex, result: CheckResult) -> None:
                 if not target.startswith("Sessions/"):
                     continue
                 stem = target.removeprefix("Sessions/").split("#", 1)[0]
-                owner = next(
-                    (session.project for session in index.sessions if session.stem == stem),
-                    "",
-                )
+                owner = owner_by_stem.get(stem, "")
                 if owner and owner != project.stem:
                     result.errors.append(
                         f"{index.config.relative(project)} Sessions links {target} "
@@ -189,7 +187,7 @@ def _check_projects(index: NoteIndex, result: CheckResult) -> None:
 def _check_questions(index: NoteIndex, result: CheckResult) -> None:
     seen: dict[str, list[str]] = defaultdict(list)
     for path in index.notes:
-        body, _ = split_frontmatter(path.read_text(encoding="utf-8"))
+        body = index.body(path)
         for text in question_items(body):
             key = re.sub(r"\s+", " ", text).lower()
             seen[key].append(index.config.relative(path))
@@ -203,13 +201,14 @@ def _check_questions(index: NoteIndex, result: CheckResult) -> None:
 
 
 def _check_freshness(index: NoteIndex, result: CheckResult) -> None:
-    if not index.config.view.is_file():
-        result.errors.append("Knowledge.md is missing")
+    home = index.config.home
+    if not home.is_file():
+        result.errors.append("Home.md is missing; run `work-graph build`")
         return
     if index.notes:
         latest = max(path.stat().st_mtime for path in index.notes)
-        if index.config.view.stat().st_mtime < latest:
-            result.warnings.append("Knowledge.md is older than the newest source note")
+        if home.stat().st_mtime < latest:
+            result.warnings.append("Home.md is older than the newest source note")
 
 
 def _check_watcher(index: NoteIndex, result: CheckResult) -> None:
@@ -252,7 +251,7 @@ def _fix_case_studies(index: NoteIndex, result: CheckResult) -> None:
     for name in FIX_DIRS:
         directory = index.config.vault / name
         for path in _notes(directory, exclude={"Active.md"} if name == "Sessions" else None):
-            text = path.read_text(encoding="utf-8")
+            text = index.read(path)
             if has_heading(text, CASE_STUDY):
                 continue
             atomic_write(path, insert_case_study(text))
@@ -264,7 +263,7 @@ def _fix_project_links(index: NoteIndex, result: CheckResult) -> None:
     for session in index.sessions:
         by_project[session.project].append(session)
     for project in index.projects:
-        text = project.read_text(encoding="utf-8")
+        text = index.read(project)
         changed = False
         for session in by_project.get(project.stem, []):
             link = f"- [[Sessions/{session.stem}]]"
@@ -292,13 +291,20 @@ def _fix_project_links(index: NoteIndex, result: CheckResult) -> None:
             result.fixed.append(f"{index.config.relative(project)} (session links)")
 
 
-def check(config: Config, *, fix: bool = False) -> CheckResult:
+def check(
+    config: Config,
+    *,
+    fix: bool = False,
+    index: NoteIndex | None = None,
+    return_index: bool = False,
+) -> CheckResult | tuple[CheckResult, NoteIndex]:
     result = CheckResult()
-    index = NoteIndex.load(config)
+    index = index or NoteIndex.load(config)
     if fix:
         _fix_case_studies(index, result)
         _fix_project_links(index, result)
-        index = NoteIndex.load(config)
+        if result.fixed:
+            index = NoteIndex.load(config)
 
     _check_structure(config, result)
     _check_sessions(index, result)
@@ -314,6 +320,8 @@ def check(config: Config, *, fix: bool = False) -> CheckResult:
     _check_freshness(index, result)
     _check_watcher(index, result)
     _check_stale(index, result)
+    if return_index:
+        return result, index
     return result
 
 

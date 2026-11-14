@@ -14,9 +14,10 @@ from pathlib import Path
 from .config import Config
 from .frontmatter import project_stem, split_frontmatter
 from .markdown import fenced_flags, question_items
-from .store import NoteIndex, SessionInfo, atomic_write
+from .store import NoteIndex, SessionInfo, atomic_write, atomic_write_if_changed
 
 FENCE_RE = re.compile(r"^\s*(```+|~~~+)")
+HOME_QUESTION_LIMIT = 20
 
 
 def first_heading(text: str) -> str:
@@ -90,8 +91,8 @@ def tidy(text: str) -> str:
     return "\n".join(output).strip()
 
 
-def load_note(path: Path) -> tuple[str, str, str]:
-    raw = path.read_text(encoding="utf-8")
+def load_note(path: Path, raw: str | None = None) -> tuple[str, str, str]:
+    raw = raw if raw is not None else path.read_text(encoding="utf-8")
     body, frontmatter = split_frontmatter(raw)
     title = first_heading(body) or path.stem
     body = strip_first_heading(body, title)
@@ -107,8 +108,8 @@ def frontmatter_value(frontmatter: str, key: str) -> str:
     return ""
 
 
-def section(kind: str, path: Path, historical: bool = False) -> str:
-    title, frontmatter, body = load_note(path)
+def section(kind: str, path: Path, historical: bool = False, raw: str | None = None) -> str:
+    title, frontmatter, body = load_note(path, raw)
     status = frontmatter_value(frontmatter, "status")
     date = frontmatter_value(frontmatter, "date")
     updated = frontmatter_value(frontmatter, "updated")
@@ -154,15 +155,13 @@ def mermaid_label(text: str) -> str:
 
 def mermaid_graph(index: NoteIndex) -> str:
     lines = ["```mermaid", "graph TD", "  K[Work Graph Knowledge]"]
+    project_positions = {path.stem: position for position, path in enumerate(index.projects)}
     for position, path in enumerate(index.projects):
         lines.append(f'  P{position}["{mermaid_label(path.stem)}"]')
         lines.append(f"  K --> P{position}")
     for position, session in enumerate(index.sessions):
         lines.append(f'  S{position}["{mermaid_label(session.stem)}"]')
-        project_index = next(
-            (i for i, p in enumerate(index.projects) if p.stem == session.project),
-            None,
-        )
+        project_index = project_positions.get(session.project)
         if project_index is None:
             lines.append(f"  K --> S{position}")
         else:
@@ -196,17 +195,27 @@ def timeline(index: NoteIndex) -> str:
     return "\n".join(rows)
 
 
-def open_questions(index: NoteIndex) -> str:
+def question_lines(index: NoteIndex) -> list[str]:
     questions: OrderedDict[str, str] = OrderedDict()
     for path in index.notes:
-        body, _ = split_frontmatter(path.read_text(encoding="utf-8"))
+        body = index.body(path)
         relative = index.config.relative(path)
         page = relative[:-3] if relative.endswith(".md") else relative
         for text in question_items(body):
             key = re.sub(r"\s+", " ", text).lower()
             if key not in questions:
                 questions[key] = f"- [[{page}]]: {text}"
-    return "\n".join(questions.values()) if questions else "No open questions recorded."
+    return list(questions.values())
+
+
+def open_questions(index: NoteIndex, limit: int | None = None) -> str:
+    lines = question_lines(index)
+    if not lines:
+        return "No open questions recorded."
+    if limit is not None and len(lines) > limit:
+        remaining = len(lines) - limit
+        lines = lines[:limit] + [f"- ... {remaining} more in [[Open Questions]]"]
+    return "\n".join(lines)
 
 
 def load_validation(path: Path | None) -> list[str]:
@@ -236,16 +245,31 @@ def validation_banner(errors: list[str]) -> list[str]:
     return lines
 
 
-def dashboard(index: NoteIndex, config: Config, generated: str) -> str:
+def generated_stamp(index: NoteIndex) -> str:
+    """Use the newest source mtime so an unchanged vault rebuilds byte-identically."""
+    latest = max((path.stat().st_mtime for path in index.notes), default=None)
+    moment = datetime.fromtimestamp(latest) if latest is not None else datetime.now()
+    return moment.astimezone().strftime("%Y-%m-%d %H:%M %Z")
+
+
+def dashboard(
+    index: NoteIndex,
+    config: Config,
+    generated: str,
+    validation_errors: list[str] | None = None,
+) -> str:
     running = [session for session in index.sessions if session.running]
     recent = sorted(
         index.sessions,
         key=lambda session: (session.date or "", session.stem),
         reverse=True,
     )[:30]
+    by_project: dict[str, list[SessionInfo]] = {}
+    for session in index.sessions:
+        by_project.setdefault(session.project, []).append(session)
     projects = []
     for path in index.projects:
-        owned = [session for session in index.sessions if session.project == path.stem]
+        owned = by_project.get(path.stem, [])
         latest = max(owned, key=lambda session: session.date or "", default=None)
         projects.append((path, len(owned), latest))
 
@@ -257,16 +281,29 @@ def dashboard(index: NoteIndex, config: Config, generated: str) -> str:
         "",
         "# Work Graph Home",
         "",
-        f"Generated {generated} from `{config.vault}`.",
+        f"Source updated {generated}. Rebuilt from `{config.vault}`.",
         "",
         f"- Projects: **{len(index.projects)}**",
         f"- Sessions: **{len(index.sessions)}**",
         f"- Running: **{len(running)}**",
-        f"- Full view: `{config.view.name}`",
-        "",
-        "## Running",
+        f"- Open questions: [[Open Questions]]",
         "",
     ]
+    if validation_errors:
+        parts.extend(
+            [
+                "## Validation",
+                "",
+                f"> {len(validation_errors)} error(s) at build time. See the watcher log.",
+                "",
+            ]
+        )
+    parts.extend(
+        [
+            "## Running",
+            "",
+        ]
+    )
     if running:
         parts.extend(["| Session | Project | Since |", "| --- | --- | --- |"])
         for session in running:
@@ -285,7 +322,15 @@ def dashboard(index: NoteIndex, config: Config, generated: str) -> str:
             f"| {session.date or '?'} | [[Sessions/{session.stem}]] | {session.status or '?'} | "
             f"[[Projects/{session.project}]] |"
         )
-    parts.extend(["", "## Open questions", "", open_questions(index), ""])
+    parts.extend(
+        [
+            "",
+            "## Open questions",
+            "",
+            open_questions(index, limit=HOME_QUESTION_LIMIT),
+            "",
+        ]
+    )
     parts.extend(
         [
             "## Decisions",
@@ -303,90 +348,129 @@ def dashboard(index: NoteIndex, config: Config, generated: str) -> str:
     return tidy("\n".join(parts)) + "\n"
 
 
+def questions_page(index: NoteIndex, generated: str) -> str:
+    lines = question_lines(index)
+    body = "\n".join(lines) if lines else "No open questions recorded."
+    parts = [
+        "---",
+        "title: Open Questions",
+        "tags: [knowledge-graph, work-graph, questions]",
+        "---",
+        "",
+        "# Open Questions",
+        "",
+        f"Source updated {generated}. Rebuilt from `{index.config.vault}`. Open the linked page to answer one.",
+        "",
+        body,
+        "",
+    ]
+    return tidy("\n".join(parts)) + "\n"
+
+
 def build(
     config: Config,
     *,
     validation_path: Path | None = None,
     compact: bool = False,
     home: bool = True,
+    archive: bool = False,
+    index: NoteIndex | None = None,
 ) -> Path:
-    index = NoteIndex.load(config)
+    index = index or NoteIndex.load(config)
     if not index.notes:
         raise FileNotFoundError(f"No notes found under {config.vault}")
-    generated = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z")
+    generated = generated_stamp(index)
+    validation_errors = load_validation(validation_path)
+    if not home and not archive:
+        archive = True
+
     if compact:
-        atomic_write(config.view, dashboard(index, config, generated))
+        text = dashboard(index, config, generated, validation_errors)
+        atomic_write_if_changed(config.view, text)
         if home and config.home != config.view:
-            atomic_write(config.home, dashboard(index, config, generated))
+            atomic_write_if_changed(config.home, text)
+        if home:
+            atomic_write_if_changed(config.questions_path, questions_page(index, generated))
         return config.view
 
-    section_specs = [
-        ("Projects", index.projects, "project", False),
-        ("Decisions", sorted((config.vault / "Decisions").glob("*.md")), "decision", False),
-        ("Sessions", [session.path for session in index.sessions], "session", True),
-        ("Research", sorted((config.vault / "Research").glob("*.md")), "research", False),
-        ("Agents", sorted((config.vault / "Agents").glob("*.md")), "agent", False),
-        ("Maps", sorted((config.vault / "Maps").glob("*.md")), "map", False),
-    ]
-    parts = [
-        "---",
-        "title: Work Graph Knowledge",
-        "tags: [knowledge-graph, work-graph]",
-        "---",
-        "",
-        "# Work Graph Knowledge",
-        "",
-        f"Generated from `{config.vault}` on {generated}.",
-        "",
-        "This is the single file Logseq reads. Edit the source notes; the watcher",
-        "rebuilds it. Manual fallback: `work-graph build`.",
-        "",
-        "## Knowledge Map",
-        "",
-        "The graph view uses the tags below as nodes. The Mermaid block renders when",
-        "a Mermaid plugin is installed.",
-        "",
-        mermaid_graph(index),
-        "",
-        "## Session Count",
-        "",
-        count_chart(index),
-        "",
-        "## Project Sessions",
-        "",
-        project_session_table(index),
-        "",
-        "## Timeline",
-        "",
-        timeline(index),
-        "",
-    ]
-    validation_errors = load_validation(validation_path)
-    if validation_errors:
-        marker = parts.index("## Knowledge Map")
-        parts[marker:marker] = validation_banner(validation_errors)
-    for heading, paths, kind, historical in section_specs:
-        parts.extend([f"## {heading}", ""])
-        if paths:
-            parts.append("\n".join(section(kind, path, historical=historical) for path in paths))
-        else:
-            parts.append("No notes yet.")
-        parts.append("")
-    parts.extend(
-        [
-            "## Open Questions",
+    if archive:
+        section_specs = [
+            ("Projects", index.projects, "project", False),
+            ("Decisions", sorted((config.vault / "Decisions").glob("*.md")), "decision", False),
+            ("Sessions", [session.path for session in index.sessions], "session", True),
+            ("Research", sorted((config.vault / "Research").glob("*.md")), "research", False),
+            ("Agents", sorted((config.vault / "Agents").glob("*.md")), "agent", False),
+            ("Maps", sorted((config.vault / "Maps").glob("*.md")), "map", False),
+        ]
+        parts = [
+            "---",
+            "title: Work Graph Knowledge",
+            "tags: [knowledge-graph, work-graph]",
+            "---",
             "",
-            open_questions(index),
+            "# Work Graph Knowledge",
             "",
-            "## Source Files",
+            f"Source updated {generated}. Generated from `{config.vault}`.",
             "",
-            "\n".join(f"- `{config.relative(path)}`" for path in index.notes),
+            "Full-text archive export. Daily reading uses the individual pages and",
+            "`Home.md`; regenerate this file with `work-graph build --archive`.",
+            "",
+            "## Knowledge Map",
+            "",
+            "The graph view uses the tags below as nodes. The Mermaid block renders when",
+            "a Mermaid plugin is installed.",
+            "",
+            mermaid_graph(index),
+            "",
+            "## Session Count",
+            "",
+            count_chart(index),
+            "",
+            "## Project Sessions",
+            "",
+            project_session_table(index),
+            "",
+            "## Timeline",
+            "",
+            timeline(index),
             "",
         ]
-    )
-    atomic_write(config.view, tidy("\n".join(parts)) + "\n")
-    if home and config.home != config.view:
-        atomic_write(config.home, dashboard(index, config, generated))
+        if validation_errors:
+            marker = parts.index("## Knowledge Map")
+            parts[marker:marker] = validation_banner(validation_errors)
+        for heading, paths, kind, historical in section_specs:
+            parts.extend([f"## {heading}", ""])
+            if paths:
+                parts.append(
+                    "\n".join(
+                        section(kind, path, historical=historical, raw=index.read(path))
+                        for path in paths
+                    )
+                )
+            else:
+                parts.append("No notes yet.")
+            parts.append("")
+        parts.extend(
+            [
+                "## Open Questions",
+                "",
+                open_questions(index),
+                "",
+                "## Source Files",
+                "",
+                "\n".join(f"- `{config.relative(path)}`" for path in index.notes),
+                "",
+            ]
+        )
+        atomic_write_if_changed(config.view, tidy("\n".join(parts)) + "\n")
+
+    if home:
+        atomic_write_if_changed(
+            config.home,
+            dashboard(index, config, generated, validation_errors),
+        )
+        atomic_write_if_changed(config.questions_path, questions_page(index, generated))
+        return config.home
     return config.view
 
 
@@ -394,6 +478,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--validation", type=Path, help="JSON file with checker errors")
     parser.add_argument("--compact", action="store_true", help="write the dashboard instead of the full view")
+    parser.add_argument("--archive", action="store_true", help="also write the full Knowledge.md archive")
     parser.add_argument("--no-home", action="store_true", help="do not write Home.md")
     args = parser.parse_args(argv)
     try:
@@ -402,6 +487,7 @@ def main(argv: list[str] | None = None) -> int:
             validation_path=args.validation,
             compact=args.compact,
             home=not args.no_home,
+            archive=args.archive,
         )
     except FileNotFoundError as error:
         print(error, file=os.sys.stderr)

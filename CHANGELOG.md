@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.3 - 2026-11-14
+
+### Changed
+
+- `work-graph build` now writes `Home.md` and `Open Questions.md` only.
+  `Knowledge.md` is an opt-in archive via `--archive`, so normal builds no
+  longer regenerate a 600 KB page that no daily view reads.
+- `Home.md` caps its open-question section at 20 items and links the rest to
+  `Open Questions`; the dashboard no longer grows with every logged question.
+- Builds reuse one `NoteIndex` read instead of re-reading every note for each
+  section. Builder and checker project lookups use maps instead of repeated
+  linear scans.
+- Generated timestamps come from the newest source note, and unchanged outputs
+  are not rewritten. An unchanged vault is a no-op instead of a new mtime on
+  every watcher tick.
+- The checker now verifies `Home.md` freshness instead of `Knowledge.md`.
+
+### Added
+
+- `WORK_GRAPH_QUESTIONS` (default `<vault>/Open Questions.md`).
+- `work-graph build --archive`.
+- Regression tests for dashboard-only builds, archive builds, question
+  capping, and unchanged-build no-ops.
+
+
 ## 0.1.2 - 2026-11-14
 
 ### Fixed

@@ -188,7 +188,7 @@ def build(config: Config, reason: str = "") -> int:
     started = time.monotonic()
     if reason:
         log(config, reason)
-    result = checker.check(config, fix=True)
+    result, index = checker.check(config, fix=True, return_index=True)
     write_json(
         config.validation_file,
         {
@@ -218,6 +218,7 @@ def build(config: Config, reason: str = "") -> int:
             config,
             validation_path=config.validation_file,
             compact=os.environ.get("WORK_GRAPH_COMPACT") == "1",
+            index=index,
         )
     except Exception as error:  # noqa: BLE001 - the watcher must keep running
         log(config, f"build failed: {error}")

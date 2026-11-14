@@ -13,9 +13,12 @@ vault opens in Obsidian, Logseq, Foam, or any text editor.
 
 The generated views are disposable:
 
-- `WORK_GRAPH_VIEW` (default `~/work-graph/Knowledge.md`): full one-file view.
 - `WORK_GRAPH_HOME` (default `<vault>/Home.md`): compact dashboard, under
-  50 KB. It is gitignored; rebuild it from notes, do not edit it.
+  50 KB, capped at 20 open questions. It is gitignored; rebuild it, do not edit.
+- `WORK_GRAPH_QUESTIONS` (default `<vault>/Open Questions.md`): full index of
+  open questions. Also generated and gitignored.
+- `WORK_GRAPH_VIEW` (default `~/work-graph/Knowledge.md`): optional full-text
+  archive, written only by `work-graph build --archive`.
 
 The point is to understand the work later: what was done, why, what changed,
 and what is still open.
@@ -234,18 +237,24 @@ Errors fail the check. Warnings are logged and the rebuild continues.
 
 ## Generated views
 
-`work-graph build` writes the full view and the compact dashboard. The full view
-contains the project MOCs, decisions, sessions, a Mermaid map, a session-count
-chart, a timeline, and open questions. Do not edit generated files by hand.
-Edit the source notes; the watcher rebuilds the views.
+`work-graph build` writes the compact dashboard (`Home.md`) and the full open
+question index (`Open Questions.md`); it does not write the optional
+`Knowledge.md` archive. The dashboard stays small by capping questions at 20 and
+links to the full index. `work-graph build --archive` writes the full view with
+the project MOCs, decisions, sessions, a Mermaid map, a session-count chart, a
+timeline, and open questions. Do not edit generated files by hand. Edit the
+source notes; the watcher rebuilds the views.
 
 A zero-exit build and a clean checker do not prove the dashboard content is
 right. Read the generated `Home.md` `## Open questions` section before
 reporting success: only unchecked boxes from that section belong there, wrapped
 lines must be joined, and plan checkboxes from other sections must be absent.
-If you change the extraction, add a test for all three cases. If you change a
-view default, update the README environment table and this skill in the same
-change; a stale default points future sessions at the wrong file.
+Also verify every `Home.md` wikilink resolves to an existing page file
+(`<vault>/<page>.md`, including the `Projects/` or `Sessions/` prefix); bare
+stems are dead links in Logseq. If you change the extraction, add a test for
+all three cases. If you change a view default, update the README environment
+table and this skill in the same change; a stale default points future
+sessions at the wrong file.
 
 The watcher runs the checker with safe repairs first, logs changed files, and
 sends a desktop notification on failure. It starts from
@@ -268,6 +277,7 @@ work-graph fix
 work-graph status
 work-graph check
 work-graph build
+work-graph build --archive
 work-graph doctor
 ```
 
@@ -279,18 +289,42 @@ the link without requiring a complete Outcome.
 
 ## View the graph
 
-Open the **source vault** in Logseq, Obsidian, or VS Code. The notes are already
-graph-compatible; no plugin is required to read or edit them.
+Logseq is the daily viewer for this vault; do not add Obsidian config or a
+`.obsidian/` directory unless the user explicitly asks. The source notes are
+plain Markdown and also open in Obsidian, Foam, or VS Code.
 
-For Logseq, add the vault as a graph and set `Home` as the start page. The
-generated `Home.md` dashboard links directly to project and session pages.
-`Knowledge.md` is an optional single-file archive outside the graph. `Home.md`
-is written to the vault root by default. Override only when you intentionally
-want it elsewhere:
+Open the **source vault** as the Logseq graph, not the generated view. Set
+`Home` as the start page. The generated `Home.md` dashboard links directly to
+`[[Projects/...]]` and `[[Sessions/...]]` pages; use full page paths, because a
+bare `[[project-name]]` link does not resolve to a folder-scoped page.
+`Knowledge.md` is an optional single-file archive outside the graph; build it
+with `work-graph build --archive` only when you need a full-text export. The old
+`~/work-graph` folder is archive-only and should not be the daily graph.
+`Home.md` and `Open Questions.md` are written to the vault root by default.
+`work-graph build` updates those two pages; it does not touch the optional
+`Knowledge.md` archive. Override paths only when you intentionally want them
+elsewhere:
 
 ```bash
 export WORK_GRAPH_HOME="$HOME/work-graph/Home.md"
+export WORK_GRAPH_QUESTIONS="$HOME/work-graph/Open Questions.md"
 ```
+
+Logseq restores the last graph on launch, so “the app is open” does not prove
+the source graph loaded. Verify `~/.config/Logseq/logs/main.log` contains
+`watch-dir {:path ".../work-graph-source"}` before trusting the view. To switch
+from the desktop, register the protocol once:
+
+```bash
+# Add MimeType=x-scheme-handler/logseq; to the [Desktop Entry] in
+# ~/.local/share/applications/logseq.desktop, then:
+update-desktop-database ~/.local/share/applications
+xdg-mime default logseq.desktop x-scheme-handler/logseq
+xdg-open 'logseq://graph/work-graph-source?page=Home'
+```
+
+Use the graph basename plus `?page=Home`; that form opens the graph window
+reliably.
 
 ## Guardrails
 

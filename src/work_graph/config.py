@@ -19,6 +19,7 @@ class Config:
     state: Path
     home: Path
     autostart: Path
+    questions: Path | None = None
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -36,7 +37,15 @@ class Config:
             / "autostart"
             / "work-graph-knowledge.desktop",
         )
-        return cls(vault=vault, view=view, state=state, home=home, autostart=autostart)
+        questions = _path("WORK_GRAPH_QUESTIONS", vault / "Open Questions.md")
+        return cls(
+            vault=vault,
+            view=view,
+            state=state,
+            home=home,
+            autostart=autostart,
+            questions=questions,
+        )
 
     @property
     def sessions(self) -> Path:
@@ -45,6 +54,10 @@ class Config:
     @property
     def projects(self) -> Path:
         return self.vault / "Projects"
+
+    @property
+    def questions_path(self) -> Path:
+        return self.questions or (self.vault / "Open Questions.md")
 
     @property
     def active(self) -> Path:

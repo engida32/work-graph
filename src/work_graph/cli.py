@@ -46,14 +46,22 @@ def _config(args: argparse.Namespace) -> Config:
     return config
 
 
-def _build(config: Config, *, compact: bool = False, home: bool = True) -> int:
+def _build(
+    config: Config,
+    *,
+    compact: bool = False,
+    home: bool = True,
+    archive: bool = False,
+) -> int:
     try:
-        output = builder.build(config, compact=compact, home=home)
-    except FileNotFoundError as error:
+        output = builder.build(config, compact=compact, home=home, archive=archive)
+    except (FileNotFoundError, ValueError) as error:
         return fail(str(error))
     print(f"Wrote {output} ({output.stat().st_size} bytes)")
     if home and config.home != output and config.home.is_file():
         print(f"Wrote {config.home} ({config.home.stat().st_size} bytes)")
+    if home and config.questions_path != output and config.questions_path.is_file():
+        print(f"Wrote {config.questions_path} ({config.questions_path.stat().st_size} bytes)")
     return 0
 
 
@@ -188,7 +196,7 @@ def status(args: argparse.Namespace) -> int:
     ]
     stale = _stale(index)
     watcher_state = _watcher_state(config)
-    check_result = checker.check(config)
+    check_result = checker.check(config, index=index)
     payload = {
         "vault": str(config.vault),
         "view": str(config.view),
@@ -262,7 +270,12 @@ def fix(args: argparse.Namespace) -> int:
 
 def build(args: argparse.Namespace) -> int:
     config = _config(args)
-    return _build(config, compact=args.compact, home=not args.no_home)
+    return _build(
+        config,
+        compact=args.compact,
+        home=not args.no_home,
+        archive=args.archive,
+    )
 
 
 def watch(args: argparse.Namespace) -> int:
@@ -276,8 +289,8 @@ def doctor(args: argparse.Namespace) -> int:
     for name in checker.NOTE_DIRS:
         if not (config.vault / name).is_dir():
             problems.append(f"missing {name}/")
-    if not config.view.is_file():
-        problems.append(f"missing view: {config.view}")
+    if not config.home.is_file():
+        problems.append(f"missing home: {config.home}")
     if not (config.vault / ".git").is_dir():
         problems.append("vault is not a git repository")
     watcher_state = _watcher_state(config)
@@ -340,7 +353,8 @@ def main(argv: list[str] | None = None) -> int:
     fix_parser.set_defaults(func=fix)
 
     build_parser = subparsers.add_parser("build", help="rebuild the generated views")
-    build_parser.add_argument("--compact", action="store_true")
+    build_parser.add_argument("--compact", action="store_true", help="write the dashboard to --view")
+    build_parser.add_argument("--archive", action="store_true", help="write the full Knowledge.md archive")
     build_parser.add_argument("--no-home", action="store_true")
     build_parser.set_defaults(func=build)
 

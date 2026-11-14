@@ -378,14 +378,76 @@ class BuilderTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
-    def test_build_writes_full_view_and_compact_home(self) -> None:
+    def test_default_build_writes_home_only(self) -> None:
         write_session(self.config, "2026-01-01-built")
         output = builder.build(self.config)
-        self.assertEqual(output, self.config.view)
+        self.assertEqual(output, self.config.home)
+        self.assertTrue(self.config.home.is_file())
+        self.assertFalse(self.config.view.exists())
+        self.assertLess(self.config.home.stat().st_size, 50_000)
+        self.assertTrue(self.config.questions_path.is_file())
+
+    def test_unchanged_build_does_not_rewrite_home(self) -> None:
+        write_session(self.config, "2026-01-01-noop")
+        builder.build(self.config)
+        before = self.config.home.stat().st_mtime_ns
+        builder.build(self.config)
+        self.assertEqual(before, self.config.home.stat().st_mtime_ns)
+
+    def test_archive_build_writes_full_view(self) -> None:
+        write_session(self.config, "2026-01-01-archive")
+        output = builder.build(self.config, archive=True)
+        self.assertEqual(output, self.config.home)
         self.assertTrue(self.config.view.is_file())
         self.assertTrue(self.config.home.is_file())
         self.assertGreater(self.config.view.stat().st_size, 0)
-        self.assertLess(self.config.home.stat().st_size, 50_000)
+
+    def test_home_open_questions_are_capped(self) -> None:
+        questions = "\n".join(f"- [ ] Question number {index}?" for index in range(25))
+        body = f"""---
+type: agent-session
+status: done
+date: 2026-01-02
+project: "[[Projects/test]]"
+tags: [agent/session]
+---
+
+# Many questions
+
+## Case Study
+
+Problem: test
+
+## Architecture
+
+## Important Notes
+
+## High-Level Plan
+
+## Tech Stack and Reasons
+
+## Open questions
+
+{questions}
+
+## Outcome
+
+Done.
+
+## Evidence
+
+Tests pass.
+"""
+        write_session(self.config, "2026-01-02-many", text=body)
+        builder.build(self.config)
+        home = self.config.home.read_text(encoding="utf-8")
+        self.assertIn("Question number 0?", home)
+        self.assertIn("Question number 19?", home)
+        self.assertNotIn("Question number 20?", home)
+        self.assertIn("5 more in [[Open Questions]]", home)
+        page = self.config.questions_path.read_text(encoding="utf-8")
+        self.assertIn("Question number 24?", page)
+        self.assertNotIn("more in [[Open Questions]]", page)
 
     def test_home_questions_are_scoped_and_joined(self) -> None:
         body = """---

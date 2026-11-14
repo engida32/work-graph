@@ -10,8 +10,8 @@ Foam, or any text editor.
 - a required case-study and evidence contract for session notes;
 - a checker for broken links, stale sessions, duplicate questions, and drift;
 - a watcher that rebuilds generated views and snapshots the vault with git;
-- a compact `Home.md` dashboard for daily use and a full `Knowledge.md` for
-  Logseq.
+- a compact `Home.md` dashboard, an `Open Questions` index, and an optional
+  full `Knowledge.md` archive.
 
 No database, daemon, or plugin is required to read the notes.
 
@@ -78,7 +78,8 @@ Check and rebuild:
 ```bash
 work-graph check
 work-graph fix
-work-graph build
+work-graph build                 # Home.md + Open Questions.md
+work-graph build --archive       # also write Knowledge.md
 work-graph status
 work-graph doctor
 ```
@@ -146,19 +147,27 @@ Every project, session, research, agent, and map note opens with `## Case Study`
 
 ## Generated views
 
-- `WORK_GRAPH_VIEW` (default `~/work-graph/Knowledge.md`) is the full view:
-  every note, a Mermaid map, a session count, a timeline, and open questions.
+Daily reads use the source pages plus two generated files:
+
 - `WORK_GRAPH_HOME` (default `<vault>/Home.md`) is a compact dashboard with
-  running sessions, project summaries, recent sessions, and open questions. It
-  stays under 50 KB for a typical vault.
+  running sessions, project summaries, recent sessions, and at most 20 open
+  questions. It stays under 50 KB for a typical vault.
+- `WORK_GRAPH_QUESTIONS` (default `<vault>/Open Questions.md`) lists every open
+  question and links the page that owns it. The dashboard links here instead of
+  growing without bound.
 
-The builder is atomic. It writes a temporary file, fsyncs it, and renames it
-over the old view. The watcher also commits a snapshot to git when the vault is
-a git repository.
+`WORK_GRAPH_VIEW` (default `~/work-graph/Knowledge.md`) is an optional full-text
+archive. `work-graph build` no longer writes it; pass `--archive` when you want
+the single-file export. This keeps the watcher fast and avoids a 600 KB page in
+the graph.
 
-Set `WORK_GRAPH_COMPACT=1` to make the full view a compact dashboard too. This
-is useful when Logseq is not in use and a fast Obsidian page matters more than
-one-file completeness.
+The builder is atomic and skips unchanged outputs. It writes a temporary file,
+fsyncs it, and renames it over the old file. Generated timestamps come from the
+newest source note, so rebuilding an unchanged vault is a no-op. The watcher
+also commits a snapshot to git when the vault is a git repository.
+
+`work-graph build --compact` is a legacy mode that writes the dashboard to
+`WORK_GRAPH_VIEW`; use `--archive` for the full export.
 
 ## Logseq and Obsidian
 
@@ -167,24 +176,28 @@ use compatible frontmatter and wikilinks, and `Home.md` is the dashboard.
 
 For Logseq, set `Home` as the start page and disable journals. The generated
 dashboard links directly to project and session pages, so each note loads on its
-own. For Obsidian, open the vault and use `Home.md` as the entry point.
+own; `Open Questions` is a normal generated page. For Obsidian, open the vault
+and use `Home.md` as the entry point.
 
-`Home.md` is written to the vault root by default; override it with:
+`Home.md` and `Open Questions.md` are written to the vault root by default;
+override them with:
 
 ```bash
 export WORK_GRAPH_HOME="$HOME/work-graph/Home.md"
+export WORK_GRAPH_QUESTIONS="$HOME/work-graph/Open Questions.md"
 ```
 
-Add `Home.md` to the vault's `.gitignore` if you do not want the generated
-dashboard in the snapshot. The source notes remain canonical.
+Add both generated pages to the vault's `.gitignore` if you do not want them in
+the snapshot. The source notes remain canonical.
 
 ## Environment variables
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `WORK_GRAPH_VAULT` | `~/work-graph-source` | source vault root |
-| `WORK_GRAPH_VIEW` | `~/work-graph/Knowledge.md` | full generated view |
+| `WORK_GRAPH_VIEW` | `~/work-graph/Knowledge.md` | full archive (opt-in) |
 | `WORK_GRAPH_HOME` | `<vault>/Home.md` | compact dashboard |
+| `WORK_GRAPH_QUESTIONS` | `<vault>/Open Questions.md` | full open-question index |
 | `WORK_GRAPH_STATE` | `~/.local/state/work-graph-knowledge` | pid, log, lock, validation |
 | `WORK_GRAPH_AUTOSTART` | `~/.config/autostart/work-graph-knowledge.desktop` | optional autostart file |
 | `WORK_GRAPH_STALE_DAYS` | `7` | stale running-session warning threshold |
@@ -202,7 +215,8 @@ work-graph watcher --once
 ```
 
 The watcher polls the six note directories, runs the checker with safe repairs,
-writes `validation.json`, rebuilds the views, and snapshots the vault. It sends
+writes `validation.json`, rebuilds `Home.md` and `Open Questions.md`, and
+snapshots the vault. It sends
 a desktop notification on failure when `notify-send` is available. A pid file
 and lock file live under `WORK_GRAPH_STATE`.
 

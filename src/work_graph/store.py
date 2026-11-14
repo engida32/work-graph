@@ -66,6 +66,18 @@ def atomic_write(path: Path, text: str, *, backup: bool = False) -> None:
         raise
 
 
+def atomic_write_if_changed(path: Path, text: str) -> bool:
+    """Write text only when the file content differs. Returns True on write."""
+    if path.is_file():
+        try:
+            if path.read_text(encoding="utf-8") == text:
+                return False
+        except OSError:
+            pass
+    atomic_write(path, text)
+    return True
+
+
 def is_watcher_command(cmdline: str) -> bool:
     text = cmdline.replace("\0", " ")
     return (
@@ -109,6 +121,7 @@ class NoteIndex:
     sessions: list[SessionInfo] = field(default_factory=list)
     projects: list[Path] = field(default_factory=list)
     notes: list[Path] = field(default_factory=list)
+    _text_cache: dict[Path, str] = field(default_factory=dict, repr=False)
 
     @classmethod
     def load(cls, config: Config) -> "NoteIndex":
@@ -123,7 +136,8 @@ class NoteIndex:
                 text = path.read_text(encoding="utf-8")
                 if not is_agent_session(text):
                     continue
-                body, frontmatter = split_frontmatter(text)
+                _, frontmatter = split_frontmatter(text)
+                index._text_cache[path] = text
                 index.sessions.append(
                     SessionInfo(
                         path=path,
@@ -144,6 +158,18 @@ class NoteIndex:
                     continue
                 index.notes.append(path)
         return index
+
+    def read(self, path: Path) -> str:
+        """Return a note body once per index; reuse it across checks and builds."""
+        try:
+            return self._text_cache[path]
+        except KeyError:
+            text = path.read_text(encoding="utf-8")
+            self._text_cache[path] = text
+            return text
+
+    def body(self, path: Path) -> str:
+        return split_frontmatter(self.read(path))[0]
 
     def session(self, stem: str) -> SessionInfo | None:
         return next((item for item in self.sessions if item.stem == stem), None)
