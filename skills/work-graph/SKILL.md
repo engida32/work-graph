@@ -14,7 +14,8 @@ vault opens in Obsidian, Logseq, Foam, or any text editor.
 The generated views are disposable:
 
 - `WORK_GRAPH_VIEW` (default `~/work-graph/Knowledge.md`): full one-file view.
-- `WORK_GRAPH_HOME` (default next to it): compact dashboard, under 50 KB.
+- `WORK_GRAPH_HOME` (default `<vault>/Home.md`): compact dashboard, under
+  50 KB. It is gitignored; rebuild it from notes, do not edit it.
 
 The point is to understand the work later: what was done, why, what changed,
 and what is still open.
@@ -93,6 +94,8 @@ $WORK_GRAPH_VAULT/
   Research/      source-backed findings
   Agents/        reusable agent contracts and notes
   Maps/          cross-project maps
+  Templates/     Markdown templates for sessions, projects, decisions
+  logseq/        optional Logseq graph config for the source vault
   scripts/       optional wrappers for the installed package
 ```
 
@@ -168,6 +171,9 @@ The four context sections and the case study are required in every new session
 note. Keep them short. The project MOC owns the durable version; the session
 note records the delta.
 
+Only unchecked boxes under `## Open questions` are questions. Plan steps stay
+under `## High-Level Plan`; the compact dashboard suppresses other checkboxes.
+
 ## Project note
 
 Active project MOCs carry the durable context. Sessions link here instead of
@@ -233,6 +239,14 @@ contains the project MOCs, decisions, sessions, a Mermaid map, a session-count
 chart, a timeline, and open questions. Do not edit generated files by hand.
 Edit the source notes; the watcher rebuilds the views.
 
+A zero-exit build and a clean checker do not prove the dashboard content is
+right. Read the generated `Home.md` `## Open questions` section before
+reporting success: only unchecked boxes from that section belong there, wrapped
+lines must be joined, and plan checkboxes from other sections must be absent.
+If you change the extraction, add a test for all three cases. If you change a
+view default, update the README environment table and this skill in the same
+change; a stale default points future sessions at the wrong file.
+
 The watcher runs the checker with safe repairs first, logs changed files, and
 sends a desktop notification on failure. It starts from
 `WORK_GRAPH_AUTOSTART` (default
@@ -265,24 +279,17 @@ the link without requiring a complete Outcome.
 
 ## View the graph
 
-Open the **source vault** in Obsidian, Logseq, or VS Code. The notes are already
+Open the **source vault** in Logseq, Obsidian, or VS Code. The notes are already
 graph-compatible; no plugin is required to read or edit them.
 
-For Foam:
+For Logseq, add the vault as a graph and set `Home` as the start page. The
+generated `Home.md` dashboard links directly to project and session pages.
+`Knowledge.md` is an optional single-file archive outside the graph. `Home.md`
+is written to the vault root by default. Override only when you intentionally
+want it elsewhere:
 
 ```bash
-code "$WORK_GRAPH_VAULT"
-code --install-extension foam.foam-vscode
-```
-
-Then run `Foam: Show Graph` from the Command Palette.
-
-Logseq can open the generated view folder and read `Knowledge.md`. Obsidian
-should open the source vault, not the generated view. To keep the compact
-dashboard inside the vault, set:
-
-```bash
-export WORK_GRAPH_HOME="$WORK_GRAPH_VAULT/Home.md"
+export WORK_GRAPH_HOME="$HOME/work-graph/Home.md"
 ```
 
 ## Guardrails

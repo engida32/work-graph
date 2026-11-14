@@ -23,6 +23,8 @@
 
 - Compact `Home.md` open questions now come only from `## Open questions` and
   join wrapped continuation lines instead of truncating them.
+- Compact `Home.md` open-question links now use full page names
+  (`Projects/...`, `Sessions/...`) so they resolve in Logseq and Obsidian.
 
 ## 0.1.1 - 2026-11-14
 

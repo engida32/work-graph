@@ -200,10 +200,12 @@ def open_questions(index: NoteIndex) -> str:
     questions: OrderedDict[str, str] = OrderedDict()
     for path in index.notes:
         body, _ = split_frontmatter(path.read_text(encoding="utf-8"))
+        relative = index.config.relative(path)
+        page = relative[:-3] if relative.endswith(".md") else relative
         for text in question_items(body):
             key = re.sub(r"\s+", " ", text).lower()
             if key not in questions:
-                questions[key] = f"- [[{path.stem}]]: {text}"
+                questions[key] = f"- [[{page}]]: {text}"
     return "\n".join(questions.values()) if questions else "No open questions recorded."
 
 

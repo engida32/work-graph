@@ -160,11 +160,16 @@ Set `WORK_GRAPH_COMPACT=1` to make the full view a compact dashboard too. This
 is useful when Logseq is not in use and a fast Obsidian page matters more than
 one-file completeness.
 
-## Obsidian
+## Logseq and Obsidian
 
-Open the **vault** in Obsidian, not the generated view. The notes already use
-Obsidian-compatible frontmatter and wikilinks. `Home.md` is written to the vault
-root by default; override it with:
+Open the **source vault** as the graph, not the generated view. The notes already
+use compatible frontmatter and wikilinks, and `Home.md` is the dashboard.
+
+For Logseq, set `Home` as the start page and disable journals. The generated
+dashboard links directly to project and session pages, so each note loads on its
+own. For Obsidian, open the vault and use `Home.md` as the entry point.
+
+`Home.md` is written to the vault root by default; override it with:
 
 ```bash
 export WORK_GRAPH_HOME="$HOME/work-graph/Home.md"

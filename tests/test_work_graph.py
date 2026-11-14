@@ -429,6 +429,7 @@ Tests pass.
         builder.build(self.config)
         home = self.config.home.read_text(encoding="utf-8")
         self.assertIn("Does the wrapped question survive on its continuation line?", home)
+        self.assertIn("[[Sessions/2026-01-02-questions]]", home)
         self.assertNotIn("A plan item that is not a question.", home)
 
     def test_compact_build_is_small(self) -> None:
