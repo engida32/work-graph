@@ -209,7 +209,7 @@ def find_session(
 def read_active(config: Config) -> tuple[str, str, str]:
     path = config.active
     if not path.is_file():
-        raise FileNotFoundError(f"missing {path}")
+        return "", "No running sessions right now.", "No closed sessions yet."
     text = path.read_text(encoding="utf-8")
     pattern = re.compile(r"(## Running\n)(.*?)(\n## Recently closed\n)(.*)", re.S)
     match = pattern.search(text)
@@ -243,7 +243,11 @@ def close_running(config: Config, stem: str, label: str = "done") -> None:
     prefix, running, closed = read_active(config)
     link = f"[[Sessions/{stem}]]"
     running_lines = [line for line in running.splitlines() if link not in line]
-    closed_lines = [line for line in closed.splitlines() if link not in line]
+    closed_lines = [
+        line
+        for line in closed.splitlines()
+        if link not in line and line.strip() != "No closed sessions yet."
+    ]
     running_text = "\n".join(running_lines).strip() or "No running sessions right now."
     closed_lines.insert(0, f"- {link} {label}")
     write_active(config, prefix, running_text, "\n".join(closed_lines))

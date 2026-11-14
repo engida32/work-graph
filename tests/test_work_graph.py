@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import os
+import re
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -236,6 +238,17 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(code, 0)
 
+    def test_start_initializes_missing_active_index(self) -> None:
+        self.config.active.unlink()
+        code, out, err = run_cli(
+            self.config, "start", "fresh-task", "--project", "test", "--no-build"
+        )
+        self.assertEqual(code, 0, out + err)
+        active = self.config.active.read_text(encoding="utf-8")
+        self.assertIn("## Running", active)
+        self.assertIn("-fresh-task]] running", active)
+        self.assertIn("## Recently closed", active)
+
     def test_start_rejects_path_traversal(self) -> None:
         code, _, err = run_cli(self.config, "start", "task", "--project", "../evil", "--no-build")
         self.assertEqual(code, 1)
@@ -252,6 +265,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("status: done", text)
         active = self.config.active.read_text(encoding="utf-8")
         self.assertIn("[[Sessions/2026-01-01-incomplete]] done", active)
+        self.assertNotIn("No closed sessions yet.", active)
 
     def test_abandon_marks_status(self) -> None:
         path = write_session(self.config, "2026-01-01-abandoned")
@@ -367,6 +381,28 @@ Tests pass.
         self.assertIn("ok", payload)
         self.assertIn("counts", payload)
         self.assertEqual(payload["counts"]["errors"], len(result.errors))
+
+    def test_freshness_uses_generated_stamp(self) -> None:
+        session = write_session(self.config, "2026-01-01-fresh")
+        builder.build(self.config)
+        home = self.config.home
+        home_mtime = home.stat().st_mtime
+        same_minute = int(home_mtime // 60) * 60 + 1
+        os.utime(session, (same_minute, same_minute))
+        result = checker.check(self.config)
+        assert isinstance(result, checker.CheckResult)
+        self.assertNotIn("older than", "\n".join(result.warnings))
+
+        text = re.sub(
+            r"Source updated [^.]*\.",
+            "Source updated 2000-01-01 00:00 UTC.",
+            home.read_text(encoding="utf-8"),
+            count=1,
+        )
+        home.write_text(text, encoding="utf-8")
+        result = checker.check(self.config)
+        assert isinstance(result, checker.CheckResult)
+        self.assertIn("older than", "\n".join(result.warnings))
 
 
 class BuilderTests(unittest.TestCase):

@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
+from .builder import generated_stamp
 from .config import Config
 from .frontmatter import frontmatter_value, project_stem, set_frontmatter_value, split_frontmatter
 from .markdown import (
@@ -205,10 +206,16 @@ def _check_freshness(index: NoteIndex, result: CheckResult) -> None:
     if not home.is_file():
         result.errors.append("Home.md is missing; run `work-graph build`")
         return
-    if index.notes:
-        latest = max(path.stat().st_mtime for path in index.notes)
-        if home.stat().st_mtime < latest:
-            result.warnings.append("Home.md is older than the newest source note")
+    if not index.notes:
+        return
+    expected = f"Source updated {generated_stamp(index)}"
+    try:
+        head = home.read_text(encoding="utf-8").splitlines()[:20]
+    except OSError:
+        result.errors.append("Home.md could not be read; run `work-graph build`")
+        return
+    if not any(expected in line for line in head):
+        result.warnings.append("Home.md is older than the newest source note")
 
 
 def _check_watcher(index: NoteIndex, result: CheckResult) -> None:

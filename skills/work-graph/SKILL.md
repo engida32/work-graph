@@ -38,6 +38,11 @@ At the start, check `Sessions/Active.md` for a running note on the same project.
 Keep at most one running session per project. If one already exists, continue it
 instead of creating a second note.
 
+In a new vault, create `Projects/<project>.md` with `type: project`, `status:
+active`, and a `## Sessions` heading before the first `start`; `start` validates
+that MOC and refuses with `project MOC not found` without it. `start` creates
+`Sessions/Active.md` on first use if it is missing.
+
 Use the CLI. It is installed by `./install.sh --hermes`; if `work-graph` is not
 on `PATH`, invoke the module with the Python that owns the install (often
 `/usr/bin/python3 -m work_graph`):

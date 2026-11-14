@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.4 - 2026-11-15
+
+### Fixed
+
+- `work-graph start` now initializes `Sessions/Active.md` on a fresh vault
+  instead of crashing with `FileNotFoundError`.
+- `work-graph close` removes the `No closed sessions yet.` placeholder when it
+  records the first closed session.
+- The `Home.md` freshness check compares the generated `Source updated` stamp
+  instead of file mtime, so a byte-identical no-op rebuild no longer reports a
+  false stale warning.
+
+### Added
+
+- Regression tests for fresh-vault start, first-close placeholder cleanup, and
+  stamp-based freshness.
+
 ## 0.1.3 - 2026-11-14
 
 ### Changed
