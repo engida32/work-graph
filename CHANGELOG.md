@@ -19,6 +19,11 @@
 - `Home.md` now defaults to the vault root (`<vault>/Home.md`) so Obsidian sees
   it; `WORK_GRAPH_HOME` still overrides the path.
 
+### Fixed
+
+- Compact `Home.md` open questions now come only from `## Open questions` and
+  join wrapped continuation lines instead of truncating them.
+
 ## 0.1.1 - 2026-11-14
 
 ### Added

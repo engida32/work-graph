@@ -43,6 +43,28 @@ def fenced_flags(lines: list[str]) -> list[bool]:
     return flags
 
 
+def question_items(body: str) -> list[str]:
+    """Return unchecked items under ``## Open questions`` with wrap-joins."""
+    lines = body.splitlines()
+    items: list[str] = []
+    in_questions = False
+    for line, fenced in zip(lines, fenced_flags(lines)):
+        if fenced:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            in_questions = stripped.lower() == "## open questions"
+            continue
+        if not in_questions:
+            continue
+        match = QUESTION_RE.match(line)
+        if match:
+            items.append(match.group(1).strip())
+        elif items and stripped and line[:1] in (" ", "\t") and not stripped.startswith(("-", "*", "+", ">")):
+            items[-1] = f"{items[-1]} {stripped}"
+    return items
+
+
 def has_heading(text: str, heading: str) -> bool:
     lines = text.splitlines()
     return any(

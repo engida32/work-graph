@@ -16,7 +16,7 @@ from .frontmatter import frontmatter_value, project_stem, set_frontmatter_value,
 from .markdown import (
     CASE_STUDY,
     LINK_RE,
-    QUESTION_RE,
+    question_items,
     fenced_flags,
     has_heading,
     insert_case_study,
@@ -190,21 +190,8 @@ def _check_questions(index: NoteIndex, result: CheckResult) -> None:
     seen: dict[str, list[str]] = defaultdict(list)
     for path in index.notes:
         body, _ = split_frontmatter(path.read_text(encoding="utf-8"))
-        lines = body.splitlines()
-        heading = ""
-        for line, fenced in zip(lines, fenced_flags(lines)):
-            if fenced:
-                continue
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                heading = stripped.lower()
-                continue
-            if heading != "## open questions":
-                continue
-            match = QUESTION_RE.match(line)
-            if not match:
-                continue
-            key = re.sub(r"\s+", " ", match.group(1).strip()).lower()
+        for text in question_items(body):
+            key = re.sub(r"\s+", " ", text).lower()
             seen[key].append(index.config.relative(path))
     for key, paths in seen.items():
         if len(paths) < 2:

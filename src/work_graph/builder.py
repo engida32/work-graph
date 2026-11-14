@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .config import Config
 from .frontmatter import project_stem, split_frontmatter
-from .markdown import fenced_flags
+from .markdown import fenced_flags, question_items
 from .store import NoteIndex, SessionInfo, atomic_write
 
 FENCE_RE = re.compile(r"^\s*(```+|~~~+)")
@@ -200,15 +200,7 @@ def open_questions(index: NoteIndex) -> str:
     questions: OrderedDict[str, str] = OrderedDict()
     for path in index.notes:
         body, _ = split_frontmatter(path.read_text(encoding="utf-8"))
-        lines = body.splitlines()
-        flags = fenced_flags(lines)
-        for line, fenced in zip(lines, flags):
-            if fenced:
-                continue
-            match = re.match(r"^\s*- \[ \]\s*(.+)$", line)
-            if not match:
-                continue
-            text = match.group(1).strip()
+        for text in question_items(body):
             key = re.sub(r"\s+", " ", text).lower()
             if key not in questions:
                 questions[key] = f"- [[{path.stem}]]: {text}"

@@ -387,6 +387,50 @@ class BuilderTests(unittest.TestCase):
         self.assertGreater(self.config.view.stat().st_size, 0)
         self.assertLess(self.config.home.stat().st_size, 50_000)
 
+    def test_home_questions_are_scoped_and_joined(self) -> None:
+        body = """---
+type: agent-session
+status: done
+date: 2026-01-02
+project: "[[Projects/test]]"
+tags: [agent/session]
+---
+
+# Questions
+
+## Case Study
+
+Problem: test
+
+## Architecture
+
+## Important Notes
+
+## High-Level Plan
+
+- [ ] A plan item that is not a question.
+
+## Tech Stack and Reasons
+
+## Open questions
+
+- [ ] Does the wrapped question survive
+  on its continuation line?
+
+## Outcome
+
+Done.
+
+## Evidence
+
+Tests pass.
+"""
+        write_session(self.config, "2026-01-02-questions", text=body)
+        builder.build(self.config)
+        home = self.config.home.read_text(encoding="utf-8")
+        self.assertIn("Does the wrapped question survive on its continuation line?", home)
+        self.assertNotIn("A plan item that is not a question.", home)
+
     def test_compact_build_is_small(self) -> None:
         write_session(self.config, "2026-01-01-compact")
         builder.build(self.config, compact=True)
