@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "work-graph"
+version = "0.1.0"
+description = "A local-first knowledge graph for agent work sessions."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "engida32" }]
+keywords = ["agents", "knowledge-graph", "logseq", "obsidian", "notes"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+]
+dependencies = []
+
+[project.scripts]
+work-graph = "work_graph.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.urls]
+Homepage = "https://github.com/engida32/work-graph"
+Repository = "https://github.com/engida32/work-graph"
