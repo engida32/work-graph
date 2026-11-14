@@ -91,11 +91,12 @@ uninstall_all() {
 
     local hermes_link="$HERMES_HOME/skills/work-graph"
     local agents_link="$AGENTS_HOME/skills/work-graph"
-    if [ -L "$hermes_link" ]; then
+    local source="$ROOT/skills/work-graph"
+    if [ -L "$hermes_link" ] && [ "$(readlink -f "$hermes_link")" = "$(readlink -f "$agents_link")" ]; then
         rm -f "$hermes_link"
         info "Removed $hermes_link"
     fi
-    if [ -L "$agents_link" ]; then
+    if [ -L "$agents_link" ] && [ "$(readlink -f "$agents_link")" = "$(readlink -f "$source")" ]; then
         rm -f "$agents_link"
         info "Removed $agents_link"
     fi
