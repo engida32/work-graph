@@ -1,5 +1,8 @@
 # Work Graph
 
+[![CI](https://github.com/engida32/work-graph/actions/workflows/ci.yml/badge.svg)](https://github.com/engida32/work-graph/actions/workflows/ci.yml)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+
 A local-first knowledge graph for agent work. Notes are plain Markdown with
 YAML frontmatter and `[[wikilinks]]`. The same vault opens in Obsidian, Logseq,
 Foam, or any text editor.
