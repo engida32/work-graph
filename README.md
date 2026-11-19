@@ -18,6 +18,45 @@ Foam, or any text editor.
 
 No database, daemon, or plugin is required to read the notes.
 
+## What a session looks like
+
+`start` writes the note and refreshes the dashboard. `close` refuses while the
+note still holds placeholders, so a session without an outcome cannot pass as a
+finished one. Transcript from a demo vault:
+
+```console
+$ work-graph start cache-bench --project demo --title "Cache hit rates"
+demo-vault/Sessions/2026-11-19-cache-bench.md
+Wrote demo-vault/Home.md (823 bytes)
+Wrote demo-vault/Open Questions.md (251 bytes)
+
+$ work-graph status
+running:
+  2026-11-19-cache-bench (demo)
+check: 0 errors, 1 warnings
+  WARN  watcher PID file is missing
+
+$ work-graph close 2026-11-19-cache-bench
+refusing to close an incomplete session:
+  Outcome or Evidence still says Pending.
+  placeholder still present: Pending.
+Pass --force to close anyway.
+
+$ work-graph close 2026-11-19-cache-bench   # after filling Outcome and Evidence
+demo-vault/Sessions/2026-11-19-cache-bench.md
+Wrote demo-vault/Home.md (718 bytes)
+Wrote demo-vault/Open Questions.md (251 bytes)
+
+$ work-graph check
+Work graph check
+Errors: 0
+Warnings: 1
+WARN  watcher PID file is missing
+```
+
+The one remaining warning is the watcher, which was not running for this
+transcript.
+
 ## Install
 
 Python 3.10 or newer.
@@ -52,9 +91,14 @@ Point the tool at a vault:
 
 ```bash
 export WORK_GRAPH_VAULT="$HOME/work-graph-source"
+export WORK_GRAPH_HOME="$HOME/work-graph-source/Home.md"
 export WORK_GRAPH_VIEW="$HOME/work-graph/Knowledge.md"
 export WORK_GRAPH_STATE="$HOME/.local/state/work-graph-knowledge"
 ```
+
+The vault needs the source directories from [Vault layout](#vault-layout) and a
+project note at `Projects/<project>.md` before the first `start`; without it the
+CLI exits with `project MOC not found: <vault>/Projects/<project>.md`.
 
 Create a session:
 
